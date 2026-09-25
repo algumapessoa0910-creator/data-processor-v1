@@ -49,6 +49,7 @@ jobs:
           }
 
       - name: Restore Backup (Se existir)
+        continue-on-error: true
         shell: powershell
         run: |
           if (Test-Path "$env:APPDATA\rclone\rclone.conf") {
@@ -57,13 +58,14 @@ jobs:
               # Restaura Desktop
               rclone copy "gdrive:Backup_PC/Desktop" "$env:USERPROFILE\Desktop" --ignore-existing
               
-              # Restaura configurações do Firefox (Perfil, Histórico)
+              # Restaura configurações do Firefox
               rclone copy "gdrive:Backup_PC/Firefox_AppData" "$env:APPDATA\Mozilla\Firefox" --ignore-existing
 
-              # Restaura configurações do AnyDesk (mantém a mesma ID)
+              # Restaura configurações do AnyDesk
               rclone copy "gdrive:Backup_PC/AnyDesk_AppData" "$env:APPDATA\AnyDesk" --ignore-existing
               rclone copy "gdrive:Backup_PC/AnyDesk_ProgramData" "C:\ProgramData\AnyDesk" --ignore-existing
           }
+
 
       - name: Install Firefox & Clean Desktop
         shell: powershell
