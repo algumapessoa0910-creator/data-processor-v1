@@ -3,7 +3,7 @@ name: Windows Server (AnyDesk + Backup/Restore)
 on:
   workflow_dispatch:
     inputs:
-      RCLONE_CONFIG_BASE64:
+      rclone_config:
         description: 'Conteúdo Base64 do seu rclone.conf (opcional se salvar em Secrets)'
         required: false
         default: ''
@@ -29,19 +29,23 @@ jobs:
           Write-Host "Instalando Rclone..."
           choco install rclone -y
           
-          # Recupera a configuração do Rclone das Secrets ou do Input
-          $rcloneConfig = "${{ secrets.RCLONE_CONFIG_BASE64 }}"
+          # Prioridade: Input da tela -> Se estiver vazio, usa a Secret do repositório
+          $rcloneConfig = "${{ github.event.inputs.rclone_config }}"
           if ([string]::IsNullOrEmpty($rcloneConfig)) {
-              $rcloneConfig = "${{ github.event.inputs.RCLONE_CONFIG_BASE64 }}"
+              $rcloneConfig = "${{ secrets.RCLONE_CONFIG_BASE64 }}"
           }
 
           if (-not [string]::IsNullOrEmpty($rcloneConfig)) {
               $rclonePath = "$env:APPDATA\rclone"
               New-Item -ItemType Directory -Force -Path $rclonePath | Out-Null
-              [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($rcloneConfig)) \vert{} Out-File "$rclonePath\rclone.conf" -Encoding utf8
+              
+              $bytes = [System.Convert]::FromBase64String($rcloneConfig)
+              $decodedConfig = [System.Text.Encoding]::UTF8.GetString($bytes)
+              Set-Content -Path "$rclonePath\rclone.conf" -Value $decodedConfig -Encoding UTF8
+              
               Write-Host "Configuração do Rclone carregada com sucesso!"
           } else {
-              Write-Host "AVISO: Nenhuma configuracao do Rclone foi encontrada."
+              Write-Host "AVISO: Nenhum Base64 fornecido via input ou Secret."
           }
 
       - name: Restore Backup (Se existir)
@@ -56,7 +60,7 @@ jobs:
               # Restaura configurações do Firefox (Perfil, Histórico)
               rclone copy "gdrive:Backup_PC/Firefox_AppData" "$env:APPDATA\Mozilla\Firefox" --ignore-existing
 
-              # Restaura configurações do AnyDesk (mantém mesma ID)
+              # Restaura configurações do AnyDesk (mantém a mesma ID)
               rclone copy "gdrive:Backup_PC/AnyDesk_AppData" "$env:APPDATA\AnyDesk" --ignore-existing
               rclone copy "gdrive:Backup_PC/AnyDesk_ProgramData" "C:\ProgramData\AnyDesk" --ignore-existing
           }
@@ -109,14 +113,12 @@ jobs:
       - name: Keep Alive Loop & Continuous Auto-Backup
         shell: powershell
         run: |
-          $mins = 350$backupInterval = 10 # Faz backup a cada 10 minutos
+          $mins = 350$backupInterval = 10 # Intervalo de backup em minutos
 
-          for ($i = 1; $i -le $mins; $i++) {
-              Start-Sleep -Seconds 60
-
-              # Backup em loop durante a vida do servidor
+          for ($i = 0; $i -lt $mins; $i++) {
+              # FAZ O BACKUP PRIMEIRO (no início e a cada intervalo)
               if (($i % $backupInterval -eq 0) -and (Test-Path "$env:APPDATA\rclone\rclone.conf")) {
-                  Write-Host "[$i min] Salvando backup dos dados na nuvem..."
+                  Write-Host "[$i min] Executando backup dos dados na nuvem..."
                   
                   rclone sync "$env:USERPROFILE\Desktop" "gdrive:Backup_PC/Desktop" --quiet
                   
@@ -131,9 +133,11 @@ jobs:
                       rclone sync "$env:APPDATA\AnyDesk" "gdrive:Backup_PC/AnyDesk_AppData" --quiet
                   }
               }
+
+              # SÓ DEPOIS ENTRA EM ESPERA
+              Start-Sleep -Seconds 60
           }
 
-      # ESTE PASSO RODA MESMO SE VOCÊ CANCELAR OU O TEMPO ESTOURAR!
       - name: Final Emergency Backup
         if: always()
         shell: powershell
