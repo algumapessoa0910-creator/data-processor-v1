@@ -1,4 +1,4 @@
-name: Cloud PC Windows (RustDesk)
+name: Cloud PC Windows Otimizado
 
 on:
   workflow_dispatch:
@@ -16,7 +16,7 @@ jobs:
       - name: 🚀 Otimização Extrema e Limpeza do Windows
         shell: powershell
         run: |
-          Write-Host "[1/5] A aplicar otimizações de alto desempenho..."
+          Write-Host "[1/7] Aplicando otimizações avançadas de desempenho..."
           
           # 1. Ativar desempenho máximo de energia
           try {
@@ -28,7 +28,7 @@ jobs:
               }
           } catch {}
 
-          # 2. Desativar efeitos visuais e transparências
+          # 2. Desativar efeitos visuais, animações e transparências
           try {
               Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\VisualEffects" -Name "VisualFXSetting" -Value 2 -ErrorAction SilentlyContinue
               Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\DWM" -Name "EnableAeroPeek" -Value 0 -ErrorAction SilentlyContinue
@@ -36,19 +36,19 @@ jobs:
 
           # 3. Desativar o Windows Defender (Proteção em Tempo Real) para poupar CPU
           try {
-              Set-MpPreference -DisableRealtimeMonitoring $true -DisableIOAVProtection $true -DisableBehaviorMonitoring $true -ErrorAction SilentlyContinue
+              Set-MpPreference -DisableRealtimeMonitoring $true -DisableIOAVProtection $true -DisableBehaviorMonitoring$true -ErrorAction SilentlyContinue
           } catch {}
 
           # 4. Parar e desativar serviços pesados desnecessários (SysMain e Windows Update)
           $servicesToDisable = @("SysMain", "wuauserv")
-          foreach ($svc in $servicesToDisable) {
+          foreach ($svc in$servicesToDisable) {
               try {
                   Stop-Service -Name $svc -Force -ErrorAction SilentlyContinue
                   Set-Service -Name $svc -StartupType Disabled -ErrorAction SilentlyContinue
               } catch {}
           }
 
-          # 5. Limpeza rápida de temporários para ganhar espaço
+          # 5. Limpeza de ficheiros temporários do sistema
           try {
               Remove-Item -Path "C:\Windows\Temp\*" -Recurse -Force -ErrorAction SilentlyContinue
               Remove-Item -Path "$env:TEMP\*" -Recurse -Force -ErrorAction SilentlyContinue
@@ -59,7 +59,7 @@ jobs:
       - name: 🛠️ Configurar Rclone
         shell: powershell
         run: |
-          Write-Host "[2/5] Verificando Rclone..."
+          Write-Host "[2/7] Verificando Rclone..."
           $rawBase64 = "${{ github.event.inputs.rclone_config }}"
           if ([string]::IsNullOrWhiteSpace($rawBase64)) {
               $rawBase64 = "${{ secrets.RCLONE_CONFIG_BASE64 }}"
@@ -67,7 +67,7 @@ jobs:
 
           if (-not [string]::IsNullOrWhiteSpace($rawBase64)) {
               choco install rclone -y --no-progress
-              $cleanBase64 = $rawBase64 -replace '\s',''
+              $cleanBase64 =$rawBase64 -replace '\s',''
               $rclonePath = "$env:APPDATA\rclone"
               New-Item -ItemType Directory -Force -Path $rclonePath | Out-Null
               
@@ -75,13 +75,13 @@ jobs:
                   $bytes = [System.Convert]::FromBase64String($cleanBase64)
                   $decodedConfig = [System.Text.Encoding]::UTF8.GetString($bytes)
                   [System.IO.File]::WriteAllText("$rclonePath\rclone.conf", $decodedConfig)
-                  Write-Host "Rclone configurado com sucesso!"
+                  Write-Host "✅ Rclone configurado com sucesso!"
               } catch {
-                  Write-Host "Codigo Base64 invalido. O backup sera desativado nesta sessao."
+                  Write-Host "⚠️ Código Base64 inválido. O backup será desativado nesta sessão."
                   Remove-Item -Path "$rclonePath\rclone.conf" -ErrorAction SilentlyContinue
               }
           } else {
-              Write-Host "Nenhum Base64 fornecido. A sessao iniciara sem backup da nuvem."
+              Write-Host "ℹ️ Nenhum Base64 fornecido. A sessão iniciará sem backup da nuvem."
           }
 
       - name: 📥 Restaurar Backup (Nuvem -> PC)
@@ -89,98 +89,75 @@ jobs:
         shell: powershell
         run: |
           if (Test-Path "$env:APPDATA\rclone\rclone.conf") {
-              Write-Host "[3/5] Restaurando dados da nuvem..."
+              Write-Host "[3/7] Restaurando dados da nuvem..."
               rclone copy "gdrive:Backup_PC/Desktop" "$env:USERPROFILE\Desktop" --ignore-existing
               rclone copy "gdrive:Backup_PC/Firefox_AppData" "$env:APPDATA\Mozilla\Firefox" --ignore-existing
-              rclone copy "gdrive:Backup_PC/RustDesk_AppData" "$env:APPDATA\rustdesk" --ignore-existing
+              rclone copy "gdrive:Backup_PC/AnyDesk_AppData" "$env:APPDATA\AnyDesk" --ignore-existing
+              rclone copy "gdrive:Backup_PC/AnyDesk_ProgramData" "C:\ProgramData\AnyDesk" --ignore-existing
           } else {
-              Write-Host "[3/5] Nenhuma configuração de nuvem ativa. Pulando restauração."
+              Write-Host "[3/7] Nenhuma configuração de nuvem ativa. Pulando restauração."
           }
 
       - name: 🌐 Instalar Firefox
         shell: powershell
         run: |
-          Write-Host "[4/5] Instalando Firefox..."
+          Write-Host "[4/7] Instalando Firefox..."
           if (-not (Test-Path "C:\Program Files\Mozilla Firefox\firefox.exe")) {
               choco install firefox -y --no-progress
           }
-          $userDesktop = [Environment]::GetFolderPath('Desktop')
-          if (-not (Test-Path "$userDesktop\Firefox.lnk")) {
-              $WshShell = New-Object -ComObject WScript.Shell
-              $Shortcut = $WshShell.CreateShortcut("$userDesktop\Firefox.lnk")
-              $Shortcut.TargetPath = "C:\Program Files\Mozilla Firefox\firefox.exe"
-              $Shortcut.Save()
-          }
 
-      - name: 📱 Instalar e Configurar RustDesk
+      - name: 🧹 Limpar Área de Trabalho (Deixar apenas o Firefox)
         shell: powershell
         run: |
-          [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
-
-          Write-Host "[5/5] Instalando o RustDesk..."
-          choco install rustdesk -y --no-progress
-          Start-Sleep -Seconds 5
-
-          $rustdeskPath = "C:\Program Files\RustDesk\rustdesk.exe"
-          if (-not (Test-Path $rustdeskPath)) {
-              $rustdeskPath = "$env:ProgramFiles\RustDesk\rustdesk.exe"
-          }
-
-          # Cria a pasta de configuração e força um ID padrão caso o executável demore a gerar
-          $configDir = "$env:APPDATA\rustdesk\config"
-          New-Item -ItemType Directory -Force -Path $configDir | Out-Null
-
-          # Inicia o serviço do RustDesk
-          Start-Process -FilePath $rustdeskPath -WindowStyle Hidden
-          Start-Sleep -Seconds 10
-
-          # Debug: Lista todos os ficheiros criados na pasta AppData para sabermos exatamente onde está o ID
-          Write-Host "--- A listar ficheiros na pasta do RustDesk ---"
-          Get-ChildItem -Path "$env:APPDATA\rustdesk" -Recurse -ErrorAction SilentlyContinue | Select-Object FullName
-
-          $rustdeskId = "Não encontrado"
+          Write-Host "[5/7] Limpando o Desktop..."
+          $desktopPath = [Environment]::GetFolderPath('Desktop')$publicDesktop = [Environment]::GetFolderPath('CommonDesktopDirectory')
           
-          # Tenta encontrar o ID nos ficheiros de configuração gerados
-          $allFiles = Get-ChildItem -Path "$env:APPDATA\rustdesk" -Recurse -Include *.toml, *.ini, *.txt, *.json -ErrorAction SilentlyContinue
-          foreach ($file in $allFiles) {
-              $content = Get-Content $file.FullName -Raw -ErrorAction SilentlyContinue
-              if ($content -match 'id\s*=\s*"([0-9]{9,10})"') {
-                  $rustdeskId = $Matches[1]
-                  break
-              }
+          # Criar atalho limpo e perfeito do Firefox no Desktop do utilizador
+          $targetPath = "C:\Program Files\Mozilla Firefox\firefox.exe"
+          $shortcutPath = "$desktopPath\Firefox.lnk"
+          
+          $WshShell = New-Object -ComObject WScript.Shell
+          $Shortcut =$WshShell.CreateShortcut($shortcutPath)$Shortcut.TargetPath = $targetPath$Shortcut.Save()
+
+          # Apagar tudo o resto do Desktop (fichas, pastas e atalhos antigos trazidos pelo backup)
+          Get-ChildItem -Path $desktopPath -Recurse \vert{} Where-Object {$_.Name -ne 'Firefox.lnk' } | Remove-Item -Force -Recurse -ErrorAction SilentlyContinue
+          Get-ChildItem -Path $publicDesktop -Recurse | Remove-Item -Force -Recurse -ErrorAction SilentlyContinue
+          
+          Write-Host "✅ Área de trabalho limpa com sucesso! Apenas o Firefox está presente."
+
+      - name: 💻 Instalar e Configurar AnyDesk
+        shell: powershell
+        run: |
+          Write-Host "[6/7] Instalando e configurando AnyDesk..."
+          $anydeskPath = "C:\Program Files (x86)\AnyDesk\AnyDesk.exe"
+          
+          if (-not (Test-Path $anydeskPath)) {$url = "https://download.anydesk.com/AnyDesk.exe"
+              Invoke-WebRequest -Uri $url -OutFile "AnyDesk.exe"
+              Start-Process -FilePath "AnyDesk.exe" -ArgumentList '--install "C:\Program Files (x86)\AnyDesk" --start-with-win --create-shortcuts --create-desktop-icon --silent' -Wait
+              Start-Sleep -Seconds 3
           }
 
-          # Se ainda estiver vazio, força a execução do comando com diretório de trabalho
-          if ($rustdeskId -eq "Não encontrado") {
-              try {
-                  $output = & $rustdeskPath --get-id 2>&1
-                  if ($output -match '[0-9]{9,10}') {
-                      $rustdeskId = $Matches[0]
-                  } else {
-                      $rustdeskId = $output
-                  }
-              } catch {
-                  $rustdeskId = "Indisponível (Verifique os logs acima)"
-              }
+          if (Test-Path $anydeskPath) {$senha = "CloudGaming2026#"
+              cmd /c "echo $senha | `"$anydeskPath`" --set-password"
+              Start-Sleep -Seconds 2
+
+              $id = cmd /c "`"$anydeskPath`" --get-id"
+
+              Write-Host ""
+              Write-Host "=============================================="
+              Write-Host "  🖥️ WINDOWS CLOUD READY!"
+              Write-Host "=============================================="
+              Write-Host "  📌 ANYDESK ID : $id"
+              Write-Host "  🔑 SENHA      : $senha"
+              Write-Host "=============================================="
+              Write-Host ""
           }
-
-          $senha = "CloudGaming2026#"
-
-          Write-Host ""
-          Write-Host "=============================================="
-          Write-Host "  WINDOWS CLOUD COM RUSTDESK PRONTO!"
-          Write-Host "=============================================="
-          Write-Host "  RUSTDESK ID : $rustdeskId"
-          Write-Host "  SENHA       : $senha"
-          Write-Host "=============================================="
-          Write-Host ""
 
       - name: 🔄 Continuous Backup & Keep-Alive Loop
         shell: powershell
         run: |
-          Write-Host "Servidor online. Rodando loop de permanência e backup..."
-          $totalMinutes = 350
-          $backupInterval = 10
+          Write-Host "[7/7] Servidor online. Rodando loop de permanência e backup..."
+          $totalMinutes = 350$backupInterval = 10
 
           for ($i = 0; $i -lt $totalMinutes; $i++) {
               if (($i % $backupInterval -eq 0) -and (Test-Path "$env:APPDATA\rclone\rclone.conf")) {
@@ -190,8 +167,11 @@ jobs:
                   if (Test-Path "$env:APPDATA\Mozilla\Firefox") {
                       rclone sync "$env:APPDATA\Mozilla\Firefox" "gdrive:Backup_PC/Firefox_AppData" --quiet
                   }
-                  if (Test-Path "$env:APPDATA\rustdesk") {
-                      rclone sync "$env:APPDATA\rustdesk" "gdrive:Backup_PC/RustDesk_AppData" --quiet
+                  if (Test-Path "C:\ProgramData\AnyDesk") {
+                      rclone sync "C:\ProgramData\AnyDesk" "gdrive:Backup_PC/AnyDesk_ProgramData" --quiet
+                  }
+                  if (Test-Path "$env:APPDATA\AnyDesk") {
+                      rclone sync "$env:APPDATA\AnyDesk" "gdrive:Backup_PC/AnyDesk_AppData" --quiet
                   }
               }
 
@@ -209,8 +189,11 @@ jobs:
               if (Test-Path "$env:APPDATA\Mozilla\Firefox") {
                   rclone sync "$env:APPDATA\Mozilla\Firefox" "gdrive:Backup_PC/Firefox_AppData" --quiet
               }
-              if (Test-Path "$env:APPDATA\rustdesk") {
-                  rclone sync "$env:APPDATA\rustdesk" "gdrive:Backup_PC/RustDesk_AppData" --quiet
+              if (Test-Path "C:\ProgramData\AnyDesk") {
+                  rclone sync "C:\ProgramData\AnyDesk" "gdrive:Backup_PC/AnyDesk_ProgramData" --quiet
+              }
+              if (Test-Path "$env:APPDATA\AnyDesk") {
+                  rclone sync "$env:APPDATA\AnyDesk" "gdrive:Backup_PC/AnyDesk_AppData" --quiet
               }
               Write-Host "✅ Backup final concluído com sucesso!"
           }
