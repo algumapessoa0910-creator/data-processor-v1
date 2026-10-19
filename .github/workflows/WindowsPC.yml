@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       rclone_config:
-        description: 'Código Base64 do rclone.conf (opcional se configurado nas Secrets)'
+        description: 'Codigo Base64 do rclone.conf (opcional se configurado nas Secrets)'
         required: false
         default: ''
 
@@ -13,11 +13,10 @@ jobs:
     runs-on: windows-latest
 
     steps:
-    
-      - name: 🚀 Otimização Extrema e Limpeza do Windows
+      - name: Otimizacao Extrema e Limpeza do Windows
         shell: powershell
         run: |
-          Write-Host "[1/7] Aplicando otimizações avançadas de desempenho..."
+          Write-Host "[1/7] Aplicando otimizacoes avancadas de desempenho..."
           
           # 1. Ativar desempenho máximo de energia
           try {
@@ -29,20 +28,20 @@ jobs:
               }
           } catch {}
 
-          # 2. Desativar efeitos visuais, animações e transparências
+          # 2. Desativar efeitos visuais, animacoes e transparencias
           try {
               Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\VisualEffects" -Name "VisualFXSetting" -Value 2 -ErrorAction SilentlyContinue
               Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\DWM" -Name "EnableAeroPeek" -Value 0 -ErrorAction SilentlyContinue
           } catch {}
 
-          # 3. Desativar o Windows Defender (Proteção em Tempo Real) para poupar CPU
+          # 3. Desativar o Windows Defender (Protecao em Tempo Real) para poupar CPU
           try {
-              Set-MpPreference -DisableRealtimeMonitoring $true -DisableIOAVProtection $true -DisableBehaviorMonitoring $true -ErrorAction SilentlyContinue
+              Set-MpPreference -DisableRealtimeMonitoring $true -DisableIOAVProtection $true -DisableBehaviorMonitoring$true -ErrorAction SilentlyContinue
           } catch {}
 
-          # 4. Parar e desativar serviços pesados desnecessários (SysMain e Windows Update)
+          # 4. Parar e desativar servicos pesados desnecessários (SysMain e Windows Update)
           $servicesToDisable = @("SysMain", "wuauserv")
-          foreach ($svc in $servicesToDisable) {
+          foreach ($svc in$servicesToDisable) {
               try {
                   Stop-Service -Name $svc -Force -ErrorAction SilentlyContinue
                   Set-Service -Name $svc -StartupType Disabled -ErrorAction SilentlyContinue
@@ -55,10 +54,9 @@ jobs:
               Remove-Item -Path "$env:TEMP\*" -Recurse -Force -ErrorAction SilentlyContinue
           } catch {}
 
-          Write-Host "✅ Sistema otimizado com sucesso!"
+          Write-Host "Sistema otimizado com sucesso!"
 
-
-      - name: 🛠️ Configurar Rclone
+      - name: Configurar Rclone
         shell: powershell
         run: |
           Write-Host "[2/7] Verificando Rclone..."
@@ -77,16 +75,16 @@ jobs:
                   $bytes = [System.Convert]::FromBase64String($cleanBase64)
                   $decodedConfig = [System.Text.Encoding]::UTF8.GetString($bytes)
                   [System.IO.File]::WriteAllText("$rclonePath\rclone.conf", $decodedConfig)
-                  Write-Host "✅ Rclone configurado com sucesso!"
+                  Write-Host "Rclone configurado com sucesso!"
               } catch {
-                  Write-Host "⚠️ Código Base64 inválido. O backup será desativado nesta sessão."
+                  Write-Host "Codigo Base64 invalido. O backup sera desativado nesta sessao."
                   Remove-Item -Path "$rclonePath\rclone.conf" -ErrorAction SilentlyContinue
               }
           } else {
-              Write-Host "ℹ️ Nenhum Base64 fornecido. A sessão iniciará sem backup da nuvem."
+              Write-Host "Nenhum Base64 fornecido. A sessao iniciara sem backup da nuvem."
           }
 
-      - name: 📥 Restaurar Backup (Nuvem -> PC)
+      - name: Restaurar Backup (Nuvem -> PC)
         continue-on-error: true
         shell: powershell
         run: |
@@ -97,10 +95,10 @@ jobs:
               rclone copy "gdrive:Backup_PC/AnyDesk_AppData" "$env:APPDATA\AnyDesk" --ignore-existing
               rclone copy "gdrive:Backup_PC/AnyDesk_ProgramData" "C:\ProgramData\AnyDesk" --ignore-existing
           } else {
-              Write-Host "[3/7] Nenhuma configuração de nuvem ativa. Pulando restauração."
+              Write-Host "[3/7] Nenhuma configuracao de nuvem ativa. Pulando restauracao."
           }
 
-      - name: 🌐 Instalar Firefox
+      - name: Instalar Firefox
         shell: powershell
         run: |
           Write-Host "[4/7] Instalando Firefox..."
@@ -108,7 +106,7 @@ jobs:
               choco install firefox -y --no-progress
           }
 
-      - name: 🧹 Limpar Área de Trabalho (Deixar apenas o Firefox)
+      - name: Limpar Área de Trabalho (Deixar apenas o Firefox)
         shell: powershell
         run: |
           Write-Host "[5/7] Limpando o Desktop..."
@@ -125,9 +123,9 @@ jobs:
           Get-ChildItem -Path $desktopPath -Recurse \vert{} Where-Object {$_.Name -ne 'Firefox.lnk' } | Remove-Item -Force -Recurse -ErrorAction SilentlyContinue
           Get-ChildItem -Path $publicDesktop -Recurse | Remove-Item -Force -Recurse -ErrorAction SilentlyContinue
           
-          Write-Host "✅ Área de trabalho limpa com sucesso! Apenas o Firefox está presente."
+          Write-Host "Área de trabalho limpa com sucesso! Apenas o Firefox esta presente."
 
-      - name: 💻 Instalar e Configurar AnyDesk
+      - name: Instalar e Configurar AnyDesk
         shell: powershell
         run: |
           Write-Host "[6/7] Instalando e configurando AnyDesk..."
@@ -147,23 +145,23 @@ jobs:
 
               Write-Host ""
               Write-Host "=============================================="
-              Write-Host "  🖥️ WINDOWS CLOUD READY!"
+              Write-Host "  WINDOWS CLOUD READY!"
               Write-Host "=============================================="
-              Write-Host "  📌 ANYDESK ID : $id"
-              Write-Host "  🔑 SENHA      : $senha"
+              Write-Host "  ANYDESK ID : $id"
+              Write-Host "  SENHA      : $senha"
               Write-Host "=============================================="
               Write-Host ""
           }
 
-      - name: 🔄 Continuous Backup & Keep-Alive Loop
+      - name: Continuous Backup and Keep-Alive Loop
         shell: powershell
         run: |
-          Write-Host "[7/7] Servidor online. Rodando loop de permanência e backup..."
+          Write-Host "[7/7] Servidor online. Rodando loop de permanencia e backup..."
           $totalMinutes = 350$backupInterval = 10
 
           for ($i = 0; $i -lt $totalMinutes; $i++) {
               if (($i % $backupInterval -eq 0) -and (Test-Path "$env:APPDATA\rclone\rclone.conf")) {
-                  Write-Host "[$i min] ☁️ Sincronizando arquivos com o Google Drive..."
+                  Write-Host "[$i min] Sincronizando arquivos com o Google Drive..."
                   rclone sync "$env:USERPROFILE\Desktop" "gdrive:Backup_PC/Desktop" --quiet
                   
                   if (Test-Path "$env:APPDATA\Mozilla\Firefox") {
@@ -180,12 +178,12 @@ jobs:
               Start-Sleep -Seconds 60
           }
 
-      - name: 💾 Backup Final de Emergência
+      - name: Backup Final de Emergência
         if: always()
         shell: powershell
         run: |
           if (Test-Path "$env:APPDATA\rclone\rclone.conf") {
-              Write-Host "⚠️ Executando backup final antes do encerramento..."
+              Write-Host "Executando backup final antes do encerramento..."
               rclone sync "$env:USERPROFILE\Desktop" "gdrive:Backup_PC/Desktop" --quiet
               
               if (Test-Path "$env:APPDATA\Mozilla\Firefox") {
@@ -197,5 +195,5 @@ jobs:
               if (Test-Path "$env:APPDATA\AnyDesk") {
                   rclone sync "$env:APPDATA\AnyDesk" "gdrive:Backup_PC/AnyDesk_AppData" --quiet
               }
-              Write-Host "✅ Backup final concluído com sucesso!"
+              Write-Host "Backup final concluido com sucesso!"
           }
