@@ -75,14 +75,15 @@ jobs:
                   $bytes = [System.Convert]::FromBase64String($cleanBase64)
                   $decodedConfig = [System.Text.Encoding]::UTF8.GetString($bytes)
                   [System.IO.File]::WriteAllText("$rclonePath\rclone.conf", $decodedConfig)
-                  Write-Host "✅ Rclone configurado com sucesso!"
+                  Write-Host "Rclone configurado com sucesso!"
               } catch {
-                  Write-Host "⚠️ Código Base64 inválido. O backup será desativado nesta sessão."
+                  Write-Host "Codigo Base64 invalido. O backup sera desativado nesta sessao."
                   Remove-Item -Path "$rclonePath\rclone.conf" -ErrorAction SilentlyContinue
               }
           } else {
-              Write-Host "ℹ️ Nenhum Base64 fornecido. A sessão iniciará sem backup da nuvem."
+              Write-Host "Nenhum Base64 fornecido. A sessao iniciara sem backup da nuvem."
           }
+
 
       - name: 📥 Restaurar Backup (Nuvem -> PC)
         continue-on-error: true
