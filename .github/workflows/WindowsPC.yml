@@ -160,7 +160,8 @@ jobs:
         shell: powershell
         run: |
           Write-Host "[7/7] Servidor online. Rodando loop de permanencia e backup..."
-          $totalMinutes = 350$backupInterval = 10
+          $totalMinutes = 350
+          $backupInterval = 10
 
           for ($i = 0; $i -lt $totalMinutes; $i++) {
               if (($i % $backupInterval -eq 0) -and (Test-Path "$env:APPDATA\rclone\rclone.conf")) {
@@ -180,6 +181,7 @@ jobs:
 
               Start-Sleep -Seconds 60
           }
+
 
       - name: Backup Final de Emergência
         if: always()
