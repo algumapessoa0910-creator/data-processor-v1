@@ -1,165 +1,175 @@
-name: Windows Server (AnyDesk + Backup/Restore)
+name: Cloud PC Windows Otimizado (StarDesk)
 
 on:
   workflow_dispatch:
     inputs:
       rclone_config:
-        description: 'Conteúdo Base64 do seu rclone.conf (opcional se salvar em Secrets)'
+        description: 'Código Base64 do rclone.conf (opcional se configurado nas Secrets)'
         required: false
         default: ''
 
 jobs:
-  build:
+  cloud-pc:
     runs-on: windows-latest
 
     steps:
-      - name: Maximize Performance & Strip Bloatware
+      - name: 🚀 Otimização Extrema e Limpeza do Windows
         shell: powershell
         run: |
-          Write-Host "Aplicando otimizacoes..."
-          try { powercfg /s SCHEME_MIN } catch {}
-          try { Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\VisualEffects" -Name "VisualFXSetting" -Value 2 } catch {}
-          try { Set-MpPreference -DisableRealtimeMonitoring $true -ErrorAction SilentlyContinue } catch {}
-          try { Stop-Service -Name "SysMain" -Force -ErrorAction SilentlyContinue } catch {}
-          try { Set-Service -Name "SysMain" -StartupType Disabled -ErrorAction SilentlyContinue } catch {}
-
-      - name: Setup Rclone
-        shell: powershell
-        run: |
-          Write-Host "Instalando Rclone..."
-          choco install rclone -y
+          Write-Host "[1/5] A aplicar otimizações de alto desempenho..."
           
-          # Prioridade: Input da tela -> Se estiver vazio, usa a Secret do repositório
-          $rcloneConfig = "${{ github.event.inputs.rclone_config }}"
-          if ([string]::IsNullOrEmpty($rcloneConfig)) {
-              $rcloneConfig = "${{ secrets.RCLONE_CONFIG_BASE64 }}"
+          # 1. Ativar desempenho máximo de energia
+          try {
+              $scheme = powercfg -l | Select-String "Ultimate Performance"
+              if ($scheme) {
+                  powercfg /s e9a42b02-d5df-448d-aa00-03f14749eb61
+              } else {
+                  powercfg /s SCHEME_MIN
+              }
+          } catch {}
+
+          # 2. Desativar efeitos visuais e transparências
+          try {
+              Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\VisualEffects" -Name "VisualFXSetting" -Value 2 -ErrorAction SilentlyContinue
+              Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\DWM" -Name "EnableAeroPeek" -Value 0 -ErrorAction SilentlyContinue
+          } catch {}
+
+          # 3. Desativar o Windows Defender (Proteção em Tempo Real) para poupar CPU
+          try {
+              Set-MpPreference -DisableRealtimeMonitoring $true -DisableIOAVProtection $true -DisableBehaviorMonitoring $true -ErrorAction SilentlyContinue
+          } catch {}
+
+          # 4. Parar e desativar serviços pesados desnecessários (SysMain e Windows Update)
+          $servicesToDisable = @("SysMain", "wuauserv")
+          foreach ($svc in $servicesToDisable) {
+              try {
+                  Stop-Service -Name $svc -Force -ErrorAction SilentlyContinue
+                  Set-Service -Name $svc -StartupType Disabled -ErrorAction SilentlyContinue
+              } catch {}
           }
 
-          if (-not [string]::IsNullOrEmpty($rcloneConfig)) {
+          # 5. Limpeza rápida de temporários para ganhar espaço
+          try {
+              Remove-Item -Path "C:\Windows\Temp\*" -Recurse -Force -ErrorAction SilentlyContinue
+              Remove-Item -Path "$env:TEMP\*" -Recurse -Force -ErrorAction SilentlyContinue
+          } catch {}
+
+          Write-Host "✅ Sistema otimizado com sucesso!"
+
+      - name: 🛠️ Configurar Rclone
+        shell: powershell
+        run: |
+          Write-Host "[2/5] Verificando Rclone..."
+          $rawBase64 = "${{ github.event.inputs.rclone_config }}"
+          if ([string]::IsNullOrWhiteSpace($rawBase64)) {
+              $rawBase64 = "${{ secrets.RCLONE_CONFIG_BASE64 }}"
+          }
+
+          if (-not [string]::IsNullOrWhiteSpace($rawBase64)) {
+              choco install rclone -y --no-progress
+              $cleanBase64 = $rawBase64 -replace '\s',''
               $rclonePath = "$env:APPDATA\rclone"
               New-Item -ItemType Directory -Force -Path $rclonePath | Out-Null
               
-              $bytes = [System.Convert]::FromBase64String($rcloneConfig)
-              $decodedConfig = [System.Text.Encoding]::UTF8.GetString($bytes)
-              Set-Content -Path "$rclonePath\rclone.conf" -Value $decodedConfig -Encoding UTF8
-              
-              Write-Host "Configuração do Rclone carregada com sucesso!"
+              try {
+                  $bytes = [System.Convert]::FromBase64String($cleanBase64)
+                  $decodedConfig = [System.Text.Encoding]::UTF8.GetString($bytes)
+                  [System.IO.File]::WriteAllText("$rclonePath\rclone.conf", $decodedConfig)
+                  Write-Host "✅ Rclone configurado com sucesso!"
+              } catch {
+                  Write-Host "⚠️ Código Base64 inválido. O backup será desativado nesta sessão."
+                  Remove-Item -Path "$rclonePath\rclone.conf" -ErrorAction SilentlyContinue
+              }
           } else {
-              Write-Host "AVISO: Nenhum Base64 fornecido via input ou Secret."
+              Write-Host "ℹ️ Nenhum Base64 fornecido. A sessão iniciará sem backup da nuvem."
           }
 
-      - name: Restore Backup (Se existir)
+      - name: 📥 Restaurar Backup (Nuvem -> PC)
         continue-on-error: true
         shell: powershell
         run: |
           if (Test-Path "$env:APPDATA\rclone\rclone.conf") {
-              Write-Host "Verificando e restaurando backups da nuvem..."
-              
-              # Restaura Desktop
+              Write-Host "[3/5] Restaurando dados da nuvem..."
               rclone copy "gdrive:Backup_PC/Desktop" "$env:USERPROFILE\Desktop" --ignore-existing
-              
-              # Restaura configurações do Firefox
               rclone copy "gdrive:Backup_PC/Firefox_AppData" "$env:APPDATA\Mozilla\Firefox" --ignore-existing
-
-              # Restaura configurações do AnyDesk
-              rclone copy "gdrive:Backup_PC/AnyDesk_AppData" "$env:APPDATA\AnyDesk" --ignore-existing
-              rclone copy "gdrive:Backup_PC/AnyDesk_ProgramData" "C:\ProgramData\AnyDesk" --ignore-existing
+              rclone copy "gdrive:Backup_PC/StarDesk_AppData" "$env:APPDATA\StarDesk" --ignore-existing
+          } else {
+              Write-Host "[3/5] Nenhuma configuração de nuvem ativa. Pulando restauração."
           }
 
-
-      - name: Install Firefox & Clean Desktop
+      - name: 🌐 Instalar Firefox
         shell: powershell
         run: |
+          Write-Host "[4/5] Instalando Firefox..."
           if (-not (Test-Path "C:\Program Files\Mozilla Firefox\firefox.exe")) {
-              Write-Host "Instalando o Firefox via Chocolatey..."
-              choco install firefox -y
+              choco install firefox -y --no-progress
           }
-
           $userDesktop = [Environment]::GetFolderPath('Desktop')
-
-          if ((Test-Path "C:\Program Files\Mozilla Firefox\firefox.exe") -and (-not (Test-Path "$userDesktop\Firefox.lnk"))) {
+          if (-not (Test-Path "$userDesktop\Firefox.lnk")) {
               $WshShell = New-Object -ComObject WScript.Shell
               $Shortcut = $WshShell.CreateShortcut("$userDesktop\Firefox.lnk")
               $Shortcut.TargetPath = "C:\Program Files\Mozilla Firefox\firefox.exe"
               $Shortcut.Save()
           }
 
-      - name: Install & Configure AnyDesk
+      - name: 📱 Instalar StarDesk & Mapear Arquivos
         shell: powershell
         run: |
-          Write-Host "Verificando/Instalando o AnyDesk..."
-          $anydeskPath = "C:\Program Files (x86)\AnyDesk\AnyDesk.exe"
-          
-          if (-not (Test-Path $anydeskPath)) {$url = "https://download.anydesk.com/AnyDesk.exe"
-              Invoke-WebRequest -Uri $url -OutFile "AnyDesk.exe"
-              Start-Process -FilePath "AnyDesk.exe" -ArgumentList '--install "C:\Program Files (x86)\AnyDesk" --start-with-win --create-shortcuts --create-desktop-icon --silent' -Wait
-              Start-Sleep -Seconds 5
+          Write-Host "[5/5] Instalando o StarDesk..."
+          try {
+              winget install --id GearUP.StarDesk --silent --accept-package-agreements --accept-source-agreements
+          } catch {
+              $stardeskUrl = "https://www.stardesk.net/api/download/windows"
+              Invoke-WebRequest -Uri $stardeskUrl -OutFile "StarDeskSetup.exe"
+              Start-Process -FilePath "StarDeskSetup.exe" -ArgumentList "/S" -Wait
           }
 
-          if (Test-Path $anydeskPath) {
-              Write-Host "Configurando senha de acesso..."
-              $senha = "CloudGaming2026#"
-              cmd /c "echo $senha | `"$anydeskPath`" --set-password"
-              Start-Sleep -Seconds 3
-
-              $id = cmd /c "`"$anydeskPath`" --get-id"
-
-              Write-Host "=========================================="
-              Write-Host "  WINDOWS SERVER IS READY!"
-              Write-Host "=========================================="
-              Write-Host "  ANYDESK ID : $id"
-              Write-Host "  SENHA      : CloudGaming2026#"
-              Write-Host "=========================================="
+          Start-Sleep -Seconds 5
+          $stardeskPath = "C:\Program Files\StarDesk\StarDesk.exe"
+          if (Test-Path $stardeskPath) {
+              Start-Process -FilePath $stardeskPath
+              Start-Sleep -Seconds 10
           }
 
-      - name: Keep Alive Loop & Continuous Auto-Backup
+          Write-Host "Mapeando pastas e configurações do StarDesk..."
+          Get-ChildItem -Path "C:\ProgramData\StarDesk", "$env:APPDATA\StarDesk", "$env:LOCALAPPDATA\StarDesk" -Recurse -ErrorAction SilentlyContinue | Select-Object FullName
+
+      - name: 🔄 Continuous Backup & Keep-Alive Loop
         shell: powershell
         run: |
-          $mins = 350$backupInterval = 10 # Intervalo de backup em minutos
+          Write-Host "Servidor online. Rodando loop de permanência e backup..."
+          $totalMinutes = 350
+          $backupInterval = 10
 
-          for ($i = 0; $i -lt $mins; $i++) {
-              # FAZ O BACKUP PRIMEIRO (no início e a cada intervalo)
+          for ($i = 0; $i -lt $totalMinutes; $i++) {
               if (($i % $backupInterval -eq 0) -and (Test-Path "$env:APPDATA\rclone\rclone.conf")) {
-                  Write-Host "[$i min] Executando backup dos dados na nuvem..."
-                  
+                  Write-Host "[$i min] ☁️ Sincronizando arquivos com o Google Drive..."
                   rclone sync "$env:USERPROFILE\Desktop" "gdrive:Backup_PC/Desktop" --quiet
                   
                   if (Test-Path "$env:APPDATA\Mozilla\Firefox") {
                       rclone sync "$env:APPDATA\Mozilla\Firefox" "gdrive:Backup_PC/Firefox_AppData" --quiet
                   }
-
-                  if (Test-Path "C:\ProgramData\AnyDesk") {
-                      rclone sync "C:\ProgramData\AnyDesk" "gdrive:Backup_PC/AnyDesk_ProgramData" --quiet
-                  }
-                  if (Test-Path "$env:APPDATA\AnyDesk") {
-                      rclone sync "$env:APPDATA\AnyDesk" "gdrive:Backup_PC/AnyDesk_AppData" --quiet
+                  if (Test-Path "$env:APPDATA\StarDesk") {
+                      rclone sync "$env:APPDATA\StarDesk" "gdrive:Backup_PC/StarDesk_AppData" --quiet
                   }
               }
 
-              # SÓ DEPOIS ENTRA EM ESPERA
               Start-Sleep -Seconds 60
           }
 
-      - name: Final Emergency Backup
+      - name: 💾 Backup Final de Emergência
         if: always()
         shell: powershell
         run: |
           if (Test-Path "$env:APPDATA\rclone\rclone.conf") {
-              Write-Host "Executando backup final antes de encerrar o servidor..."
-              
+              Write-Host "⚠️ Executando backup final antes do encerramento..."
               rclone sync "$env:USERPROFILE\Desktop" "gdrive:Backup_PC/Desktop" --quiet
               
               if (Test-Path "$env:APPDATA\Mozilla\Firefox") {
                   rclone sync "$env:APPDATA\Mozilla\Firefox" "gdrive:Backup_PC/Firefox_AppData" --quiet
               }
-
-              if (Test-Path "C:\ProgramData\AnyDesk") {
-                  rclone sync "C:\ProgramData\AnyDesk" "gdrive:Backup_PC/AnyDesk_ProgramData" --quiet
+              if (Test-Path "$env:APPDATA\StarDesk") {
+                  rclone sync "$env:APPDATA\StarDesk" "gdrive:Backup_PC/StarDesk_AppData" --quiet
               }
-              if (Test-Path "$env:APPDATA\AnyDesk") {
-                  rclone sync "$env:APPDATA\AnyDesk" "gdrive:Backup_PC/AnyDesk_AppData" --quiet
-              }
-              
-              Write-Host "Backup final concluído!"
+              Write-Host "✅ Backup final concluído com sucesso!"
           }
-          
