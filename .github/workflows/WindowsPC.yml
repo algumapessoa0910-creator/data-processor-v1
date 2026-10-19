@@ -36,12 +36,12 @@ jobs:
 
           # 3. Desativar o Windows Defender (Protecao em Tempo Real) para poupar CPU
           try {
-              Set-MpPreference -DisableRealtimeMonitoring $true -DisableIOAVProtection $true -DisableBehaviorMonitoring$true -ErrorAction SilentlyContinue
+              Set-MpPreference -DisableRealtimeMonitoring $true -DisableIOAVProtection $true -DisableBehaviorMonitoring $true -ErrorAction SilentlyContinue
           } catch {}
 
           # 4. Parar e desativar servicos pesados desnecessários (SysMain e Windows Update)
           $servicesToDisable = @("SysMain", "wuauserv")
-          foreach ($svc in$servicesToDisable) {
+          foreach ($svc in $servicesToDisable) {
               try {
                   Stop-Service -Name $svc -Force -ErrorAction SilentlyContinue
                   Set-Service -Name $svc -StartupType Disabled -ErrorAction SilentlyContinue
@@ -55,6 +55,7 @@ jobs:
           } catch {}
 
           Write-Host "Sistema otimizado com sucesso!"
+
 
       - name: Configurar Rclone
         shell: powershell
