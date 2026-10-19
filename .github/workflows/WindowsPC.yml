@@ -111,20 +111,22 @@ jobs:
         shell: powershell
         run: |
           Write-Host "[5/7] Limpando o Desktop..."
-          $desktopPath = [Environment]::GetFolderPath('Desktop')$publicDesktop = [Environment]::GetFolderPath('CommonDesktopDirectory')
+          $desktopPath = [Environment]::GetFolderPath('Desktop')
+          $publicDesktop = [Environment]::GetFolderPath('CommonDesktopDirectory')
           
-          # Criar atalho limpo e perfeito do Firefox no Desktop do utilizador
           $targetPath = "C:\Program Files\Mozilla Firefox\firefox.exe"
           $shortcutPath = "$desktopPath\Firefox.lnk"
           
           $WshShell = New-Object -ComObject WScript.Shell
-          $Shortcut =$WshShell.CreateShortcut($shortcutPath)$Shortcut.TargetPath = $targetPath$Shortcut.Save()
+          $Shortcut = $WshShell.CreateShortcut($shortcutPath)
+          $Shortcut.TargetPath = $targetPath
+          $Shortcut.Save()
 
-          # Apagar tudo o resto do Desktop (fichas, pastas e atalhos antigos trazidos pelo backup)
-          Get-ChildItem -Path $desktopPath -Recurse \vert{} Where-Object {$_.Name -ne 'Firefox.lnk' } | Remove-Item -Force -Recurse -ErrorAction SilentlyContinue
+          Get-ChildItem -Path $desktopPath -Recurse | Where-Object { $_.Name -ne 'Firefox.lnk' } | Remove-Item -Force -Recurse -ErrorAction SilentlyContinue
           Get-ChildItem -Path $publicDesktop -Recurse | Remove-Item -Force -Recurse -ErrorAction SilentlyContinue
           
           Write-Host "Área de trabalho limpa com sucesso! Apenas o Firefox esta presente."
+
 
       - name: Instalar e Configurar AnyDesk
         shell: powershell
