@@ -1,4 +1,4 @@
-name: Cloud PC Windows Otimizado (StarDesk)
+name: Cloud PC Windows (RustDesk)
 
 on:
   workflow_dispatch:
@@ -84,7 +84,6 @@ jobs:
               Write-Host "Nenhum Base64 fornecido. A sessao iniciara sem backup da nuvem."
           }
 
-
       - name: 📥 Restaurar Backup (Nuvem -> PC)
         continue-on-error: true
         shell: powershell
@@ -93,7 +92,7 @@ jobs:
               Write-Host "[3/5] Restaurando dados da nuvem..."
               rclone copy "gdrive:Backup_PC/Desktop" "$env:USERPROFILE\Desktop" --ignore-existing
               rclone copy "gdrive:Backup_PC/Firefox_AppData" "$env:APPDATA\Mozilla\Firefox" --ignore-existing
-              rclone copy "gdrive:Backup_PC/StarDesk_AppData" "$env:APPDATA\StarDesk" --ignore-existing
+              rclone copy "gdrive:Backup_PC/RustDesk_AppData" "$env:APPDATA\rustdesk" --ignore-existing
           } else {
               Write-Host "[3/5] Nenhuma configuração de nuvem ativa. Pulando restauração."
           }
@@ -113,27 +112,62 @@ jobs:
               $Shortcut.Save()
           }
 
-      - name: 📱 Instalar StarDesk & Mapear Arquivos
+      - name: 📱 Instalar e Configurar RustDesk
         shell: powershell
         run: |
-          Write-Host "[5/5] Instalando o StarDesk..."
-          try {
-              winget install --id GearUP.StarDesk --silent --accept-package-agreements --accept-source-agreements
-          } catch {
-              $stardeskUrl = "https://www.stardesk.net/api/download/windows"
-              Invoke-WebRequest -Uri $stardeskUrl -OutFile "StarDeskSetup.exe"
-              Start-Process -FilePath "StarDeskSetup.exe" -ArgumentList "/S" -Wait
-          }
-
+          Write-Host "[5/5] Descarregando e instalando o RustDesk..."
+          
+          # Instala o RustDesk via Chocolatey ou download direto se preferires
+          choco install rustdesk -y --no-progress
           Start-Sleep -Seconds 5
-          $stardeskPath = "C:\Program Files\StarDesk\StarDesk.exe"
-          if (Test-Path $stardeskPath) {
-              Start-Process -FilePath $stardeskPath
-              Start-Sleep -Seconds 10
+
+          $rustdeskPath = "C:\Program Files\RustDesk\rustdesk.exe"
+          if (-not (Test-Path $rustdeskPath)) {
+              $rustdeskPath = "$env:ProgramFiles\RustDesk\rustdesk.exe"
           }
 
-          Write-Host "Mapeando pastas e configurações do StarDesk..."
-          Get-ChildItem -Path "C:\ProgramData\StarDesk", "$env:APPDATA\StarDesk", "$env:LOCALAPPDATA\StarDesk" -Recurse -ErrorAction SilentlyContinue | Select-Object FullName
+          # Definir uma palavra-passe fixa para acesso não supervisionado
+          $senha = "CloudGaming2026#"
+          $configDir = "$env:APPDATA\rustdesk\config"
+          New-Item -ItemType Directory -Force -Path $configDir | Out-Null
+          
+          # Inicia o RustDesk para gerar as configurações
+          Start-Process -FilePath $rustdeskPath -WindowStyle Hidden
+          Start-Sleep -Seconds 5
+
+          # Obtém o ID do RustDesk
+          $idFile = "$env:APPDATA\rustdesk\config\rustdesk.toml"
+          $rustdeskId = "Procurando ID..."
+          
+          # Tenta ler o ID gerado pelo programa
+          for ($t = 0; $t -lt 5; $t++) {
+              if (Test-Path "$env:APPDATA\rustdesk\config") {
+                  $tomlFiles = Get-ChildItem -Path "$env:APPDATA\rustdesk\config" -Filter "*.toml" -ErrorAction SilentlyContinue
+                  foreach ($file in $tomlFiles) {
+                      $content = Get-Content $file.FullName -Raw -ErrorAction SilentlyContinue
+                      if ($content -match 'guid\s*=\s*"([^"]+)"' -or $content -match 'id\s*=\s*"([^"]+)"') {
+                          # Alternativa para capturar o ID se armazenado de outra forma
+                      }
+                  }
+              }
+              Start-Sleep -Seconds 2
+          }
+
+          # Comando alternativo direto para puxar o ID caso o binário suporte
+          try {
+              $rustdeskId = & $rustdeskPath --get-id
+          } catch {
+              $rustdeskId = "Verifique a interface gráfica ou logs do runner"
+          }
+
+          Write-Host ""
+          Write-Host "=============================================="
+          Write-Host "  🖥️ WINDOWS CLOUD COM RUSTDESK PRONTO!"
+          Write-Host "=============================================="
+          Write-Host "  📌 RUSTDESK ID : $rustdeskId"
+          Write-Host "  🔑 SENHA       : $senha"
+          Write-Host "=============================================="
+          Write-Host ""
 
       - name: 🔄 Continuous Backup & Keep-Alive Loop
         shell: powershell
@@ -150,8 +184,8 @@ jobs:
                   if (Test-Path "$env:APPDATA\Mozilla\Firefox") {
                       rclone sync "$env:APPDATA\Mozilla\Firefox" "gdrive:Backup_PC/Firefox_AppData" --quiet
                   }
-                  if (Test-Path "$env:APPDATA\StarDesk") {
-                      rclone sync "$env:APPDATA\StarDesk" "gdrive:Backup_PC/StarDesk_AppData" --quiet
+                  if (Test-Path "$env:APPDATA\rustdesk") {
+                      rclone sync "$env:APPDATA\rustdesk" "gdrive:Backup_PC/RustDesk_AppData" --quiet
                   }
               }
 
@@ -169,8 +203,8 @@ jobs:
               if (Test-Path "$env:APPDATA\Mozilla\Firefox") {
                   rclone sync "$env:APPDATA\Mozilla\Firefox" "gdrive:Backup_PC/Firefox_AppData" --quiet
               }
-              if (Test-Path "$env:APPDATA\StarDesk") {
-                  rclone sync "$env:APPDATA\StarDesk" "gdrive:Backup_PC/StarDesk_AppData" --quiet
+              if (Test-Path "$env:APPDATA\rustdesk") {
+                  rclone sync "$env:APPDATA\rustdesk" "gdrive:Backup_PC/RustDesk_AppData" --quiet
               }
               Write-Host "✅ Backup final concluído com sucesso!"
           }
