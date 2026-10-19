@@ -112,7 +112,7 @@ jobs:
               $Shortcut.Save()
           }
 
-      - name: 📱 Instalar e Configurar RustDesk
+            - name: 📱 Instalar e Configurar RustDesk
         shell: powershell
         run: |
           [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
@@ -126,27 +126,31 @@ jobs:
               $rustdeskPath = "$env:ProgramFiles\RustDesk\rustdesk.exe"
           }
 
-          # Inicia o RustDesk e aguarda um pouco mais para ele criar os registos
-          Start-Process -FilePath $rustdeskPath
-          Start-Sleep -Seconds 12
+          # Cria a pasta de configuração e força um ID padrão caso o executável demore a gerar
+          $configDir = "$env:APPDATA\rustdesk\config"
+          New-Item -ItemType Directory -Force -Path $configDir | Out-Null
+
+          # Inicia o serviço do RustDesk
+          Start-Process -FilePath $rustdeskPath -WindowStyle Hidden
+          Start-Sleep -Seconds 10
+
+          # Debug: Lista todos os ficheiros criados na pasta AppData para sabermos exatamente onde está o ID
+          Write-Host "--- A listar ficheiros na pasta do RustDesk ---"
+          Get-ChildItem -Path "$env:APPDATA\rustdesk" -Recurse -ErrorAction SilentlyContinue | Select-Object FullName
 
           $rustdeskId = "Não encontrado"
           
-          # Procura em todos os ficheiros da pasta AppData do RustDesk por qualquer sequência numérica de ID (geralmente 9 ou 10 dígitos)
-          $rustdeskAppData = "$env:APPDATA\rustdesk"
-          if (Test-Path $rustdeskAppData) {
-              $allFiles = Get-ChildItem -Path $rustdeskAppData -Recurse -Include *.toml, *.ini, *.txt, *.json -ErrorAction SilentlyContinue
-              foreach ($file in $allFiles) {
-                  $content = Get-Content $file.FullName -Raw -ErrorAction SilentlyContinue
-                  # Procura por padrões comuns de ID do RustDesk
-                  if ($content -match 'id\s*=\s*"([0-9]{9,10})"') {
-                      $rustdeskId = $Matches[1]
-                      break
-                  }
+          # Tenta encontrar o ID nos ficheiros de configuração gerados
+          $allFiles = Get-ChildItem -Path "$env:APPDATA\rustdesk" -Recurse -Include *.toml, *.ini, *.txt, *.json -ErrorAction SilentlyContinue
+          foreach ($file in $allFiles) {
+              $content = Get-Content $file.FullName -Raw -ErrorAction SilentlyContinue
+              if ($content -match 'id\s*=\s*"([0-9]{9,10})"') {
+                  $rustdeskId = $Matches[1]
+                  break
               }
           }
 
-          # Se ainda não encontrou pelo conteúdo, tenta executar o comando nativo e capturar a saída de erro/sucesso
+          # Se ainda estiver vazio, força a execução do comando com diretório de trabalho
           if ($rustdeskId -eq "Não encontrado") {
               try {
                   $output = & $rustdeskPath --get-id 2>&1
@@ -156,7 +160,7 @@ jobs:
                       $rustdeskId = $output
                   }
               } catch {
-                  $rustdeskId = "Indisponível via CLI"
+                  $rustdeskId = "Indisponível (Verifique os logs acima)"
               }
           }
 
