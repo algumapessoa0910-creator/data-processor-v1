@@ -115,9 +115,11 @@ jobs:
       - name: 📱 Instalar e Configurar RustDesk
         shell: powershell
         run: |
-          Write-Host "[5/5] Descarregando e instalando o RustDesk..."
-          
-          # Instala o RustDesk via Chocolatey ou download direto se preferires
+          # Força a consola a usar UTF-8 para evitar carateres estranhos
+          [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+          $PSDefaultParameterValues['Out-File:Encoding'] = 'utf8'
+
+          Write-Host "[5/5] Instalando o RustDesk..."
           choco install rustdesk -y --no-progress
           Start-Sleep -Seconds 5
 
@@ -126,46 +128,44 @@ jobs:
               $rustdeskPath = "$env:ProgramFiles\RustDesk\rustdesk.exe"
           }
 
-          # Definir uma palavra-passe fixa para acesso não supervisionado
-          $senha = "CloudGaming2026#"
+          # Garante que a pasta de configuração existe
           $configDir = "$env:APPDATA\rustdesk\config"
           New-Item -ItemType Directory -Force -Path $configDir | Out-Null
-          
-          # Inicia o RustDesk para gerar as configurações
+
+          # Inicia o RustDesk em segundo plano
           Start-Process -FilePath $rustdeskPath -WindowStyle Hidden
-          Start-Sleep -Seconds 5
+          Start-Sleep -Seconds 8
 
-          # Obtém o ID do RustDesk
-          $idFile = "$env:APPDATA\rustdesk\config\rustdesk.toml"
-          $rustdeskId = "Procurando ID..."
+          # Procura o ID diretamente no ficheiro de configuração do RustDesk
+          $rustdeskId = "Não encontrado"
+          $tomlPath = "$env:APPDATA\rustdesk\config\RustDesk2.toml"
           
-          # Tenta ler o ID gerado pelo programa
-          for ($t = 0; $t -lt 5; $t++) {
-              if (Test-Path "$env:APPDATA\rustdesk\config") {
-                  $tomlFiles = Get-ChildItem -Path "$env:APPDATA\rustdesk\config" -Filter "*.toml" -ErrorAction SilentlyContinue
-                  foreach ($file in $tomlFiles) {
-                      $content = Get-Content $file.FullName -Raw -ErrorAction SilentlyContinue
-                      if ($content -match 'guid\s*=\s*"([^"]+)"' -or $content -match 'id\s*=\s*"([^"]+)"') {
-                          # Alternativa para capturar o ID se armazenado de outra forma
-                      }
-                  }
-              }
-              Start-Sleep -Seconds 2
+          if (-not (Test-Path $tomlPath)) {
+              $tomlPath = Get-ChildItem -Path "$env:APPDATA\rustdesk\config" -Filter "*.toml" | Select-Object -ExpandProperty FullName -First 1
           }
 
-          # Comando alternativo direto para puxar o ID caso o binário suporte
-          try {
-              $rustdeskId = & $rustdeskPath --get-id
-          } catch {
-              $rustdeskId = "Verifique a interface gráfica ou logs do runner"
+          if ($tomlPath -and (Test-Path $tomlPath)) {
+              $content = Get-Content $tomlPath -Raw
+              if ($content -match 'id\s*=\s*"([^"]+)"') {
+                  $rustdeskId = $Matches[1]
+              }
           }
+
+          # Se ainda não encontrou, tenta puxar pelo executável
+          if ($rustdeskId -eq "Não encontrado") {
+              try {
+                  $rustdeskId = (& $rustdeskPath --get-id) 2>&1
+              } catch {}
+          }
+
+          $senha = "CloudGaming2026#"
 
           Write-Host ""
           Write-Host "=============================================="
-          Write-Host "  🖥️ WINDOWS CLOUD COM RUSTDESK PRONTO!"
+          Write-Host "  WINDOWS CLOUD COM RUSTDESK PRONTO!"
           Write-Host "=============================================="
-          Write-Host "  📌 RUSTDESK ID : $rustdeskId"
-          Write-Host "  🔑 SENHA       : $senha"
+          Write-Host "  RUSTDESK ID : $rustdeskId"
+          Write-Host "  SENHA       : $senha"
           Write-Host "=============================================="
           Write-Host ""
 
